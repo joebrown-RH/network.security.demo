@@ -1,0 +1,50 @@
+---
+- name: Validate Emergency ACL Lockdown
+  hosts: "{{ _hosts | default('routers') }}"
+  gather_facts: false
+
+  vars:
+    acl_name: "EMERGENCY-CVE-BLOCK"
+
+  tasks:
+    - name: Gather current ACL configuration
+      cisco.ios.ios_acls:
+        state: gathered
+      register: current_acls
+
+    - name: Verify emergency ACL exists
+      ansible.builtin.assert:
+        that:
+          - current_acls.gathered | length > 0
+          - current_acls.gathered
+            | selectattr('afi', 'equalto', 'ipv4')
+            | map(attribute='acls')
+            | flatten
+            | selectattr('name', 'equalto', acl_name)
+            | list
+            | length > 0
+        fail_msg: "VALIDATION FAILED: ACL '{{ acl_name }}' not found on {{ inventory_hostname }}"
+        success_msg: "ACL '{{ acl_name }}' confirmed present on {{ inventory_hostname }}"
+
+    - name: Verify ACL is applied to interfaces
+      cisco.ios.ios_command:
+        commands:
+          - "show ip interface | include {{ acl_name }}"
+      register: interface_check
+
+    - name: Assert ACL is bound to at least one interface
+      ansible.builtin.assert:
+        that:
+          - interface_check.stdout[0] | length > 0
+        fail_msg: "VALIDATION FAILED: ACL '{{ acl_name }}' is not applied to any interface on {{ inventory_hostname }}"
+        success_msg: "ACL '{{ acl_name }}' is active on interfaces for {{ inventory_hostname }}"
+
+    - name: Show access list hit counts
+      cisco.ios.ios_command:
+        commands:
+          - "show access-lists {{ acl_name }}"
+      register: acl_detail
+
+    - name: Display validation results
+      ansible.builtin.debug:
+        msg: "{{ acl_detail.stdout_lines[0] }}"

@@ -1,0 +1,54 @@
+---
+- name: Create ServiceNow Change Request for Audit Trail
+  hosts: localhost
+  gather_facts: true
+  connection: local
+
+  vars:
+    cve_id: "{{ cve_id | default('CVE-UNKNOWN') }}"
+    blocked_port: "{{ blocked_port | default('445') }}"
+    blocked_protocol: "{{ blocked_protocol | default('tcp') }}"
+    acl_name: "{{ acl_name | default('EMERGENCY-CVE-BLOCK') }}"
+    target_hosts: "{{ _hosts | default('routers') }}"
+
+  tasks:
+    - name: Create emergency change request
+      servicenow.itsm.change_request:
+        state: new
+        type: emergency
+        priority: critical
+        risk: high
+        impact: high
+        short_description: "Emergency ACL Lockdown - {{ cve_id }}"
+        description: |
+          AUTOMATED EMERGENCY CHANGE - Ansible Automation Platform
+
+          CVE: {{ cve_id }}
+          Action: Emergency ACL lockdown applied
+          ACL Name: {{ acl_name }}
+          Blocked Traffic: {{ blocked_protocol }}/{{ blocked_port }}
+          Target Devices: {{ target_hosts }}
+          Executed By: Ansible Automation Platform (Event-Driven)
+          Timestamp: {{ ansible_date_time.iso8601 }}
+
+          This change was triggered automatically by Event-Driven Ansible
+          in response to a critical vulnerability alert. Emergency ACLs
+          have been applied to block the exploit vector while patches
+          are evaluated and deployed.
+
+          NEXT STEPS:
+          1. Evaluate and test available patches
+          2. Schedule patch deployment window
+          3. Run "Network - ACL Remove" job template to remove emergency ACLs
+          4. Close this change request
+        category: Network
+        assignment_group: Network Operations
+      register: change_result
+
+    - name: Display change request details
+      ansible.builtin.debug:
+        msg: >-
+          ServiceNow Change Request created:
+          Number={{ change_result.record.number }},
+          SysID={{ change_result.record.sys_id }},
+          CVE={{ cve_id }}

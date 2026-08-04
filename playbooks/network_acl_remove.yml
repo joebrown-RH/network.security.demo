@@ -1,0 +1,61 @@
+---
+- name: Remove Emergency ACL After Patching
+  hosts: "{{ _hosts | default('routers') }}"
+  gather_facts: false
+
+  vars:
+    acl_name: "EMERGENCY-CVE-BLOCK"
+
+  tasks:
+    - name: Gather current ACL interface bindings
+      cisco.ios.ios_acl_interfaces:
+        state: gathered
+      register: current_bindings
+
+    - name: Remove ACL from all interfaces
+      cisco.ios.ios_acl_interfaces:
+        config:
+          - name: "{{ item.name }}"
+            access_groups:
+              - afi: ipv4
+                acls:
+                  - name: "{{ acl_name }}"
+                    direction: in
+        state: deleted
+      loop: >-
+        {{ current_bindings.gathered
+           | selectattr('access_groups', 'defined')
+           | list }}
+      when: >-
+        item.access_groups
+        | default([])
+        | selectattr('acls', 'defined')
+        | map(attribute='acls')
+        | flatten
+        | selectattr('name', 'equalto', acl_name)
+        | list
+        | length > 0
+
+    - name: Remove the ACL definition
+      cisco.ios.ios_acls:
+        config:
+          - afi: ipv4
+            acls:
+              - name: "{{ acl_name }}"
+        state: deleted
+
+    - name: Verify ACL has been removed
+      cisco.ios.ios_command:
+        commands:
+          - "show access-lists {{ acl_name }}"
+      register: verify_removal
+      failed_when: false
+
+    - name: Confirm removal
+      ansible.builtin.debug:
+        msg: >-
+          {% if verify_removal.stdout[0] | length == 0 %}
+          ACL '{{ acl_name }}' successfully removed from {{ inventory_hostname }}
+          {% else %}
+          WARNING: ACL '{{ acl_name }}' may still be present on {{ inventory_hostname }}
+          {% endif %}

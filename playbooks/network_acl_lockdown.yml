@@ -1,0 +1,89 @@
+---
+- name: Emergency ACL Lockdown for CVE Mitigation
+  hosts: "{{ _hosts | default('routers') }}"
+  gather_facts: false
+
+  vars:
+    acl_name: "EMERGENCY-CVE-BLOCK"
+    cve_id: "{{ cve_id | default('CVE-UNKNOWN') }}"
+    blocked_port: "{{ blocked_port | default('445') }}"
+    blocked_protocol: "{{ blocked_protocol | default('tcp') }}"
+
+  tasks:
+    - name: Apply emergency ACL to block exploited port
+      cisco.ios.ios_acls:
+        config:
+          - afi: ipv4
+            acls:
+              - name: "{{ acl_name }}"
+                acl_type: extended
+                aces:
+                  - remarks:
+                      - "{{ cve_id }} - Emergency lockdown applied by AAP"
+                  - sequence: 10
+                    grant: deny
+                    protocol: "{{ blocked_protocol }}"
+                    source:
+                      any: true
+                    destination:
+                      any: true
+                      port_protocol:
+                        eq: "{{ blocked_port }}"
+                    log:
+                      set: true
+                  - sequence: 20
+                    grant: deny
+                    protocol: "{{ blocked_protocol }}"
+                    source:
+                      any: true
+                      port_protocol:
+                        eq: "{{ blocked_port }}"
+                    destination:
+                      any: true
+                    log:
+                      set: true
+                  - sequence: 1000
+                    grant: permit
+                    protocol: ip
+                    source:
+                      any: true
+                    destination:
+                      any: true
+        state: merged
+      register: acl_result
+
+    - name: Gather interface facts
+      cisco.ios.ios_facts:
+        gather_subset: min
+        gather_network_resources:
+          - l3_interfaces
+      register: interface_facts
+
+    - name: Build list of routed interfaces
+      ansible.builtin.set_fact:
+        routed_interfaces: >-
+          {{ interface_facts.ansible_facts.ansible_network_resources.l3_interfaces
+             | selectattr('ipv4', 'defined')
+             | map(attribute='name')
+             | list }}
+
+    - name: Apply ACL inbound on all routed interfaces
+      cisco.ios.ios_acl_interfaces:
+        config:
+          - name: "{{ item }}"
+            access_groups:
+              - afi: ipv4
+                acls:
+                  - name: "{{ acl_name }}"
+                    direction: in
+        state: merged
+      loop: "{{ routed_interfaces }}"
+
+    - name: Display lockdown summary
+      ansible.builtin.debug:
+        msg: >-
+          LOCKDOWN COMPLETE:
+          CVE={{ cve_id }},
+          ACL={{ acl_name }},
+          Blocked={{ blocked_protocol }}/{{ blocked_port }},
+          Interfaces={{ routed_interfaces | join(', ') }}

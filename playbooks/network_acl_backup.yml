@@ -1,0 +1,14 @@
+---
+- name: Backup Network Device Configuration
+  hosts: "{{ _hosts | default('routers') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Backup running configuration
+      cisco.ios.ios_config:
+        backup: true
+      register: backup_result
+
+    - name: Display backup location
+      ansible.builtin.debug:
+        msg: "Configuration backed up to {{ backup_result.backup_path }}"

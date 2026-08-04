@@ -1,0 +1,88 @@
+---
+# Predefined ACL lockdown profiles for commonly exploited attack vectors.
+# Use these with the webhook payload or as extra_vars when launching manually.
+#
+# Example webhook payload using a profile:
+#   curl -X POST http://<eda-host>:5000/endpoint \
+#     -H "Content-Type: application/json" \
+#     -d '{"cve_id":"CVE-2026-99999","severity":"critical","action":"lockdown","port":"445","protocol":"tcp"}'
+
+acl_profiles:
+
+  smb_worm:
+    name: "SMB / EternalBlue / WannaCry"
+    cve_examples:
+      - CVE-2017-0144
+      - CVE-2020-0796
+    blocked_port: "445"
+    blocked_protocol: tcp
+    risk: "Ransomware propagation, lateral movement via SMB"
+    webhook_payload:
+      cve_id: "CVE-2017-0144"
+      severity: critical
+      action: lockdown
+      port: "445"
+      protocol: tcp
+      description: "SMB remote code execution - worm propagation vector"
+
+  rdp_exploit:
+    name: "RDP / BlueKeep"
+    cve_examples:
+      - CVE-2019-0708
+      - CVE-2024-21307
+    blocked_port: "3389"
+    blocked_protocol: tcp
+    risk: "Remote code execution, ransomware initial access via RDP"
+    webhook_payload:
+      cve_id: "CVE-2019-0708"
+      severity: critical
+      action: lockdown
+      port: "3389"
+      protocol: tcp
+      description: "RDP remote code execution - BlueKeep"
+
+  http_app_exploit:
+    name: "HTTP Application Server (Log4Shell-style)"
+    cve_examples:
+      - CVE-2021-44228
+      - CVE-2024-3094
+    blocked_port: "8080"
+    blocked_protocol: tcp
+    risk: "Remote code execution via application server exploit"
+    webhook_payload:
+      cve_id: "CVE-2021-44228"
+      severity: critical
+      action: lockdown
+      port: "8080"
+      protocol: tcp
+      description: "Application server RCE - Log4Shell class vulnerability"
+
+  dns_amplification:
+    name: "DNS Amplification / Reflection"
+    cve_examples:
+      - CVE-2023-50387
+    blocked_port: "53"
+    blocked_protocol: udp
+    risk: "DDoS amplification, DNS cache poisoning"
+    webhook_payload:
+      cve_id: "CVE-2023-50387"
+      severity: critical
+      action: lockdown
+      port: "53"
+      protocol: udp
+      description: "DNS amplification attack vector"
+
+  telnet_cleartext:
+    name: "Telnet - Cleartext Protocol"
+    cve_examples:
+      - CVE-2020-10188
+    blocked_port: "23"
+    blocked_protocol: tcp
+    risk: "Credential theft, unauthorized device access via cleartext protocol"
+    webhook_payload:
+      cve_id: "CVE-2020-10188"
+      severity: critical
+      action: lockdown
+      port: "23"
+      protocol: tcp
+      description: "Telnet cleartext access - credential interception"
