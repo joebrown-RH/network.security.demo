@@ -1,0 +1,13 @@
+---
+eda_rulebook_activations:
+  - name: CVE Emergency Network Lockdown
+    description: >-
+      Listens for webhook alerts from vulnerability scanners.
+      Triggers the Network - CVE Emergency Lockdown workflow
+      when a critical severity CVE is received.
+    project: "{{ _project }}"
+    organization: "{{ _org }}"
+    rulebook: rulebooks/cve_webhook_lockdown.yml
+    decision_environment: "{{ _eda_decision_environment }}"
+    eda_credentials: "{{ _eda_controller_credential }}"
+    state: present

@@ -1,0 +1,60 @@
+---
+controller_templates:
+  - name: "Network - Backup Config"
+    job_type: run
+    organization: "{{ _org }}"
+    inventory: "{{ _network_inventory }}"
+    project: "{{ _project }}"
+    playbook: playbooks/network_acl_backup.yml
+    execution_environment: "{{ _ee }}"
+    credentials:
+      - "{{ _network_credential }}"
+    ask_variables_on_launch: true
+
+  - name: "Network - ACL Lockdown"
+    job_type: run
+    organization: "{{ _org }}"
+    inventory: "{{ _network_inventory }}"
+    project: "{{ _project }}"
+    playbook: playbooks/network_acl_lockdown.yml
+    execution_environment: "{{ _ee }}"
+    credentials:
+      - "{{ _network_credential }}"
+    ask_variables_on_launch: true
+    extra_vars:
+      cve_id: CVE-UNKNOWN
+      blocked_port: "445"
+      blocked_protocol: tcp
+
+  - name: "Network - Validate Lockdown"
+    job_type: run
+    organization: "{{ _org }}"
+    inventory: "{{ _network_inventory }}"
+    project: "{{ _project }}"
+    playbook: playbooks/network_acl_validate.yml
+    execution_environment: "{{ _ee }}"
+    credentials:
+      - "{{ _network_credential }}"
+    ask_variables_on_launch: true
+
+  - name: "Network - Create ServiceNow CR"
+    job_type: run
+    organization: "{{ _org }}"
+    inventory: "{{ _network_inventory }}"
+    project: "{{ _project }}"
+    playbook: playbooks/servicenow_create_change.yml
+    execution_environment: "{{ _ee }}"
+    credentials:
+      - "{{ _servicenow_credential }}"
+    ask_variables_on_launch: true
+
+  - name: "Network - ACL Remove"
+    job_type: run
+    organization: "{{ _org }}"
+    inventory: "{{ _network_inventory }}"
+    project: "{{ _project }}"
+    playbook: playbooks/network_acl_remove.yml
+    execution_environment: "{{ _ee }}"
+    credentials:
+      - "{{ _network_credential }}"
+    ask_variables_on_launch: true

@@ -1,0 +1,48 @@
+---
+- name: Setup Network Security Demo
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    _org: "{{ org | default('Default') }}"
+    _project: "{{ project_name | default('Network Security Demo') }}"
+    _network_inventory: "{{ network_inventory | default('Network Inventory') }}"
+    _network_credential: "{{ network_credential | default('Network Credential') }}"
+    _servicenow_credential: "{{ servicenow_credential | default('ServiceNow Credential') }}"
+    _ee: "{{ execution_environment | default('Default execution environment') }}"
+    _eda_decision_environment: "{{ eda_decision_environment | default('Default Decision Environment') }}"
+    _eda_controller_credential: "{{ eda_controller_credential | default('Controller Credential') }}"
+
+  tasks:
+    - name: Load CaC definitions
+      ansible.builtin.include_vars:
+        dir: "{{ playbook_dir }}/../config_as_code"
+
+    - name: Create demo resources
+      ansible.builtin.include_role:
+        name: infra.aap_configuration.dispatch
+      vars:
+        controller_dependency_check: false  # noqa: var-naming[no-role-prefix]
+
+    - name: Setup complete
+      ansible.builtin.debug:
+        msg: |
+          Network Security Demo setup complete.
+
+          Created job templates:
+            - Network - Backup Config
+            - Network - ACL Lockdown
+            - Network - Validate Lockdown
+            - Network - Create ServiceNow CR
+            - Network - ACL Remove
+
+          Created workflow:
+            - Network - CVE Emergency Lockdown
+
+          Created EDA activation:
+            - CVE Emergency Network Lockdown
+
+          Test with:
+            curl -X POST http://<eda-host>:5000/endpoint \
+              -H "Content-Type: application/json" \
+              -d '{"cve_id":"CVE-2017-0144","severity":"critical","action":"lockdown","port":"445","protocol":"tcp"}'

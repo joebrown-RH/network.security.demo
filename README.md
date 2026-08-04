@@ -32,7 +32,51 @@ Scanner Alert ──> EDA Webhook ──> AAP Workflow
 - **RHDP Catalog Item**: "Ansible Network Automation" from [demo.redhat.com](https://demo.redhat.com)
 - The lab provides: AAP Controller, EDA Controller, Cisco IOS-XE routers
 
-### Step 1: Create the Project in AAP
+### Automated Setup (Recommended)
+
+All job templates, the workflow, and the EDA activation can be created automatically using Configuration-as-Code. Only two manual steps are required:
+
+**1. Create the Project**
+
+In AAP Controller, navigate to **Projects** > **Add**:
+- **Name**: `Network Security Demo`
+- **Organization**: Default
+- **Source Control Type**: Git
+- **Source Control URL**: `https://github.com/joebrown-RH/network.security.demo.git`
+- **Update Revision on Launch**: Enabled
+
+**2. Create and run the Setup job template**
+
+Navigate to **Templates** > **Add** > **Add job template**:
+- **Name**: `Setup - Network Security Demo`
+- **Project**: `Network Security Demo`
+- **Playbook**: `playbooks/setup_demo.yml`
+- **Inventory**: Demo Inventory (or any inventory with localhost)
+- **Credentials**: your AAP credential (needs admin access to create resources)
+- **Extra Variables** (adjust to match your environment):
+  ```yaml
+  org: Default
+  project_name: Network Security Demo
+  network_inventory: Network Inventory
+  network_credential: Network Credential
+  servicenow_credential: ServiceNow Credential
+  execution_environment: Default execution environment
+  eda_decision_environment: Default Decision Environment
+  eda_controller_credential: Controller Credential
+  ```
+- **Prompt on launch** for Extra Variables: Enabled
+
+Launch the setup template. It will create:
+- 5 job templates (Backup, Lockdown, Validate, ServiceNow CR, ACL Remove)
+- 1 workflow template (Network - CVE Emergency Lockdown)
+- 1 EDA rulebook activation (CVE Emergency Network Lockdown)
+
+### Manual Setup (Alternative)
+
+<details>
+<summary>Click to expand manual click-ops instructions</summary>
+
+#### Create the Project in AAP
 
 1. Log in to AAP Controller
 2. Navigate to **Projects** > **Add**
@@ -40,10 +84,10 @@ Scanner Alert ──> EDA Webhook ──> AAP Workflow
    - **Name**: `Network Security Demo`
    - **Organization**: Default
    - **Source Control Type**: Git
-   - **Source Control URL**: *(your git repo URL for this project)*
+   - **Source Control URL**: `https://github.com/joebrown-RH/network.security.demo.git`
    - **Update Revision on Launch**: Enabled
 
-### Step 2: Create Job Templates
+#### Create Job Templates
 
 Create the following job templates, all using the `Network Security Demo` project:
 
@@ -57,7 +101,7 @@ Create the following job templates, all using the `Network Security Demo` projec
 
 For **Network - ACL Lockdown**, enable **Prompt on launch** for Extra Variables so the workflow can pass `cve_id`, `blocked_port`, and `blocked_protocol`.
 
-### Step 3: Create the Workflow Template
+#### Create the Workflow Template
 
 1. Navigate to **Templates** > **Add** > **Add workflow template**
 2. **Name**: `Network - CVE Emergency Lockdown`
@@ -70,7 +114,7 @@ For **Network - ACL Lockdown**, enable **Prompt on launch** for Extra Variables 
 [Network - ACL Lockdown]
         │ (on success)          │ (on failure)
         v                       v
-[Network - Validate Lockdown]  [Restore from backup - manual]
+[Network - Validate Lockdown]  [Network - ACL Remove (rollback)]
         │ (on success)
         v
 [Network - Create ServiceNow CR]
@@ -79,7 +123,7 @@ For **Network - ACL Lockdown**, enable **Prompt on launch** for Extra Variables 
 4. Enable **Prompt on launch** for Extra Variables on the workflow template
 5. Check **Pass extra variables to nodes** so `cve_id`, `blocked_port`, and `blocked_protocol` flow through
 
-### Step 4: Configure Event-Driven Ansible
+#### Configure Event-Driven Ansible
 
 1. Log in to the EDA Controller
 2. Create a **Project** pointing to this repo
@@ -91,7 +135,9 @@ For **Network - ACL Lockdown**, enable **Prompt on launch** for Extra Variables 
    - **Credential**: AAP Controller Credential
 4. Enable the activation
 
-### Step 5: Test the Demo
+</details>
+
+### Test the Demo
 
 Trigger the lockdown with a simulated scanner alert:
 
@@ -127,11 +173,17 @@ After the demo, remove the emergency ACLs:
 
 ```
 playbooks/
+  setup_demo.yml                # CaC setup: creates all templates + workflow + EDA in AAP
   network_acl_backup.yml        # Backup running config before changes
   network_acl_lockdown.yml      # Apply emergency ACLs to block exploit vector
   network_acl_validate.yml      # Verify ACLs are applied and active
   network_acl_remove.yml        # Remove emergency ACLs post-patch
   servicenow_create_change.yml  # Create ServiceNow emergency change request
+
+config_as_code/
+  controller_templates.yml           # Job template definitions (5 templates)
+  controller_templates_workflow.yml  # Workflow template definition
+  eda_rulebook_activations.yml       # EDA rulebook activation definition
 
 rulebooks/
   cve_webhook_lockdown.yml      # EDA rulebook: webhook trigger -> workflow
@@ -149,6 +201,7 @@ These should be available in the execution environment:
 
 - `cisco.ios` >= 5.0.0
 - `servicenow.itsm` >= 2.4.0
+- `infra.aap_configuration` (for the setup playbook)
 - `ansible.eda` >= 1.0.0 (for the decision environment)
 
 ## Campaign Alignment
