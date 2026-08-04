@@ -1,6 +1,6 @@
 # Network ACL Emergency Lockdown Demo
 
-Automated CVE-driven network lockdown using Red Hat Ansible Automation Platform and Event-Driven Ansible. Part of the **Security in the AI Era** campaign.
+Automated CVE-driven network lockdown using Red Hat Ansible Automation Platform and Event-Driven Ansible. 
 
 ## What This Demo Shows
 
