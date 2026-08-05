@@ -1,55 +1,88 @@
-# Attackers Move in Hours. Your Network Lockdown Should Too.
+# A Critical CVE Just Dropped and There's No Patch. Now What?
 
-In 2020, security teams had a 44-day head start between a vulnerability being published and the first exploit appearing in the wild. By 2025, that gap had collapsed into a **7-day deficit** -- meaning attackers are now building working exploits *before* most organizations even begin patching. AI-powered tools like frontier models can identify and weaponize 30-year-old zero-days in hours. The game has fundamentally changed.
+It's 2pm on a Tuesday. A critical CVE hits the wire affecting a protocol your entire network depends on. Your vulnerability scanner lights up — every router in the fleet is exposed. You check the vendor advisory: no patch available yet. Estimated timeline: weeks.
 
-So what happens when a critical CVE drops on a Tuesday afternoon, there is no patch available yet, and your vulnerability scanner just flagged 200 network devices as exposed?
+You know what needs to happen. Someone has to log into every affected router, write an ACL to block the exploited port, apply it to the right interfaces, verify it took, and document the whole thing for the change advisory board. Across dozens or hundreds of devices, without breaking production traffic. If your team is doing this by hand, that's days of work. Days where every one of those devices is sitting there waiting to be exploited.
 
-If you are manually SSH-ing into routers to push ACLs, you are looking at days of work -- and days of exposure. If you have Ansible Automation Platform and Event-Driven Ansible, you are looking at **minutes**.
+## The real problem isn't writing the ACL
 
-## The Scenario
+Network engineers know how to write ACLs. That part is straightforward. What slows everything down is the operational overhead around it — who's making the change, on which devices, in what order? Did someone already handle the east coast routers? Did every device get exactly the same ACL, or did someone fat-finger a sequence number on router 47? Did we back up the running config first? If this ACL breaks something in production, can we actually revert without making it worse?
 
-A vulnerability scanner (Qualys, Tenable, Rapid7 -- pick your tool) detects a critical CVE affecting a widely-used network protocol. No vendor patch exists yet. The scanner fires a webhook to Event-Driven Ansible, which kicks off an automated lockdown workflow across your Cisco IOS infrastructure.
+And then there's the audit trail. When the compliance team comes asking what was changed, when, and who approved it, the answer can't be "check Dave's terminal history."
 
-Here is what happens in the next 3 minutes -- with zero human CLI access required:
+Scale that across a large fleet under time pressure and mistakes pile up fast. A missed interface here, a skipped device there — each one is a hole in your perimeter.
 
-**1. Backup** -- The current running configuration on every affected router is backed up automatically. If anything goes wrong, we have a rollback point.
+## Automate the response, not just the detection
 
-**2. Lockdown** -- An emergency ACL is pushed to all routed interfaces, blocking the exploited port and protocol. Every deny rule includes logging and a remark tagging the specific CVE ID for traceability. The ACL permits all other traffic -- we are surgically blocking the attack vector, not taking the network offline.
+We've gotten good at detection. Scanners, SIEM rules, threat feeds — the alert side is fast. The response side? Still a lot of SSH sessions and spreadsheets tracking who did what. That's the gap.
 
-**3. Validate** -- The workflow verifies the ACL exists, confirms it is bound to the correct interfaces, and checks hit counters. If validation fails on any device, the workflow flags it immediately.
+This demo connects detection directly to response using Ansible Automation Platform:
 
-**4. Audit Trail** -- A ServiceNow emergency change request is created automatically with full details: which CVE, what was blocked, which devices were affected, when the lockdown was applied. Your change advisory board has a complete record without anyone filling out a form.
+```
+┌──────────────────┐
+│  Vulnerability   │
+│    Scanner       │
+│ (Qualys/Tenable/ │
+│   Rapid7/etc.)   │
+└────────┬─────────┘
+         │ webhook
+         v
+┌──────────────────┐
+│   Event-Driven   │     "Is this critical?"
+│     Ansible      │──── Non-critical: log for manual review
+│                  │
+└────────┬─────────┘
+         │ critical + lockdown
+         v
+┌──────────────────────────────────────────────────┐
+│           AAP Workflow Engine                     │
+│                                                  │
+│  ┌──────────┐    ┌──────────┐    ┌────────────┐ │
+│  │  Backup  │───>│ Lockdown │───>│  Validate  │ │
+│  │  Config  │    │   ACL    │    │  Lockdown  │ │
+│  └──────────┘    └─────┬────┘    └────────────┘ │
+│                        │                         │
+│                   (on failure)                    │
+│                        │                         │
+│                        v                         │
+│                  ┌───────────┐                   │
+│                  │  Rollback │                   │
+│                  │ (Remove   │                   │
+│                  │   ACL)    │                   │
+│                  └───────────┘                   │
+└──────────────────────────────────────────────────┘
+```
 
-The entire flow -- from scanner alert to network-wide lockdown with a ServiceNow ticket -- runs without a human touching a CLI.
+The scanner finds the vulnerability and fires a webhook. Event-Driven Ansible looks at the severity — critical threats trigger the lockdown workflow automatically, everything else gets logged for a human to triage.
 
-## Why This Matters for the AI Era
+Here's what the workflow actually does:
 
-The security landscape has shifted in two critical ways that make this kind of automation non-negotiable.
+First, it backs up the running config on every target router. If anything goes sideways, there's a known-good state to revert to.
 
-First, **the volume is unmanageable without automation**. Annual CVE counts have grown 2.6x since 2020. Security teams cannot manually triage and respond to every alert, especially when 45% of vulnerabilities in large organizations remain unpatched after 12 months. The backlog is growing faster than teams can work through it.
+Then it pushes an extended ACL blocking the exploited port and protocol on all routed interfaces. The ACL only blocks the specific attack vector — deny the bad traffic, permit everything else. Every deny rule has logging enabled and a remark with the CVE ID baked in, so six months from now when someone sees `EMERGENCY-CVE-BLOCK` in the config, they know exactly why it's there.
 
-Second, **patching alone is not enough**. Even when a patch exists, getting from patch availability to production deployment takes most organizations 31-90 days. That is an eternity when exploits are weaponized in hours. You need the ability to **mitigate** -- to deploy targeted controls that break the exploit chain while you evaluate and test the actual fix. That is exactly what this workflow does.
+After the lockdown, the workflow actually verifies it worked. It gathers the ACL state from each device, checks that the rules exist, confirms they're applied to the right interfaces, and pulls hit counters. It doesn't just assume the change took — it proves it.
 
-## The Automation Architecture
+If the lockdown step fails on any device, the workflow doesn't leave things half-done. It automatically removes the ACL and restores normal operation.
 
-The solution uses three components of Red Hat Ansible Automation Platform working together:
+The whole thing runs in minutes.
 
-- **Event-Driven Ansible** listens for webhook events from your vulnerability scanner and applies rules to determine the appropriate response. Critical severity triggers the lockdown workflow. Non-critical alerts are logged for manual review.
+## Why this approach works
 
-- **AAP Controller** orchestrates the multi-step workflow with full governance -- RBAC controls who can run what, Ansible Vault protects device credentials, the automation mesh ensures secure execution across network zones, and every action is logged in the audit trail.
+Under the hood, it's the exact same `ip access-list extended` config a network engineer would write. The automation doesn't do anything clever with the ACL itself — it just makes sure it gets applied identically on every device without the typos and missed interfaces that come from doing it manually under pressure at 2am.
 
-- **Certified Content Collections** (`cisco.ios`, `servicenow.itsm`) provide idempotent, tested modules that handle the actual device configuration and ITSM integration. No custom scripts. No fragile screen-scraping.
+The lockdown playbook takes the CVE ID, port, and protocol as variables, so the same workflow handles different attack vectors: SMB worms on 445, RDP exploits on 3389, rogue HTTP services on 8080, DNS amplification on 53/udp. You don't rebuild the automation for each incident — you just pass different parameters.
 
-The workflow is built as reusable job templates connected in a workflow template. The lockdown playbook accepts the CVE ID, port, and protocol as variables, so the same automation handles SMB worms, RDP exploits, DNS amplification -- any network-level attack vector where blocking a port buys time.
+On the governance side, AAP handles the parts that usually require a spreadsheet and a prayer. RBAC controls who can trigger a lockdown. Credentials live in Vault, not in a playbook someone committed to Git. Every execution is logged with exactly what changed on which devices. When compliance asks questions, the answers already exist.
 
-## From Reactive to Proactive
+And when the actual patch is ready and deployed? A separate job template strips the emergency ACL from all interfaces and cleans up the rules. You're not left with stale emergency ACLs cluttering configs for the next three years because nobody remembers if it's safe to remove them.
 
-This pattern represents a fundamental shift. Instead of a security team receiving an alert, scheduling a change window, writing ACL changes, testing them, and manually deploying across the fleet -- the response is **immediate, consistent, and auditable**.
+## The gap between "we found it" and "we fixed it"
 
-And when the patch is ready? A separate "ACL Remove" job template cleanly reverses the emergency rules, the ServiceNow change request gets closed, and the network returns to normal operations. The entire lifecycle is governed.
+There's a window between when your scanner finds a vulnerability and when a patch actually lands in production. Sometimes that's days. Sometimes it's months — 45% of vulnerabilities in large environments are still sitting unpatched a year later. That window is where attackers live.
 
-The Mean Time To Exploit is now measured in hours. Your Mean Time To Mitigate should be too.
+The tooling to detect is already fast. The tooling to patch is getting better. But that middle ground — the "we know about it but can't fix it yet" phase — is where most organizations are still flying manual. That's the gap this automation fills. Your scanner finds the problem in seconds; the network-level mitigation deploys in minutes. No waiting for a change window. No war room. No hoping nobody exploits it before Friday.
 
 ---
 
-*This demo can be built and tested using the Network Automation Lab available on the Red Hat Demo Platform (demo.redhat.com). The playbooks, EDA rulebook, and full setup instructions are available in the `network.security.demo` repository.*
+*This demo runs on the Network Automation Workshop available from the Red Hat Demo Platform. The playbooks, EDA rulebook, containerlab topology, and setup instructions are in the [network.security.demo](https://github.com/joebrown-RH/network.security.demo) repository.*
