@@ -3,8 +3,8 @@ controller_workflows:
   - name: "Network - CVE Emergency Lockdown"
     description: >-
       Automated CVE-driven network lockdown workflow.
-      Backs up config, applies emergency ACLs, validates,
-      and creates a ServiceNow change request for audit trail.
+      Backs up config, applies emergency ACLs, and validates.
+      On lockdown failure, rolls back the ACL automatically.
     organization: "{{ _org }}"
     ask_variables_on_launch: true
     extra_vars:
@@ -36,18 +36,8 @@ controller_workflows:
             type: job_template
 
         - identifier: Validate Lockdown
-          related:
-            success_nodes:
-              - identifier: Create ServiceNow CR
           unified_job_template:
             name: "Network - Validate Lockdown"
-            organization:
-              name: "{{ _org }}"
-            type: job_template
-
-        - identifier: Create ServiceNow CR
-          unified_job_template:
-            name: "Network - Create ServiceNow CR"
             organization:
               name: "{{ _org }}"
             type: job_template

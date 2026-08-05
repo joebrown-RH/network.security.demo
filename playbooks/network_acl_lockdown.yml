@@ -1,6 +1,6 @@
 ---
 - name: Emergency ACL Lockdown for CVE Mitigation
-  hosts: "{{ _hosts | default('routers') }}"
+  hosts: "{{ _hosts | default('cisco') }}"
   gather_facts: false
 
   vars:

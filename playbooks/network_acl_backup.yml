@@ -1,6 +1,6 @@
 ---
 - name: Backup Network Device Configuration
-  hosts: "{{ _hosts | default('routers') }}"
+  hosts: "{{ _hosts | default('cisco') }}"
   gather_facts: false
 
   tasks:

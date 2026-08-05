@@ -37,17 +37,6 @@ controller_templates:
       - "{{ _network_credential }}"
     ask_variables_on_launch: true
 
-  - name: "Network - Create ServiceNow CR"
-    job_type: run
-    organization: "{{ _org }}"
-    inventory: "{{ _network_inventory }}"
-    project: "{{ _project }}"
-    playbook: playbooks/servicenow_create_change.yml
-    execution_environment: "{{ _ee }}"
-    credentials:
-      - "{{ _servicenow_credential }}"
-    ask_variables_on_launch: true
-
   - name: "Network - ACL Remove"
     job_type: run
     organization: "{{ _org }}"

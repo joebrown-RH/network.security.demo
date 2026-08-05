@@ -4,12 +4,11 @@
   gather_facts: false
 
   vars:
-    _org: "{{ org | default('Default') }}"
+    _org: "{{ org | default('Red Hat network organization') }}"
     _project: "{{ project_name | default('Network Security Demo') }}"
-    _network_inventory: "{{ network_inventory | default('Network Inventory') }}"
-    _network_credential: "{{ network_credential | default('Network Credential') }}"
-    _servicenow_credential: "{{ servicenow_credential | default('ServiceNow Credential') }}"
-    _ee: "{{ execution_environment | default('Default execution environment') }}"
+    _network_inventory: "{{ network_inventory | default('Workshop Inventory') }}"
+    _network_credential: "{{ network_credential | default('Workshop Credential') }}"
+    _ee: "{{ execution_environment | default('Network EE') }}"
     _eda_decision_environment: "{{ eda_decision_environment | default('Default Decision Environment') }}"
     _eda_controller_credential: "{{ eda_controller_credential | default('Controller Credential') }}"
 
@@ -33,7 +32,6 @@
             - Network - Backup Config
             - Network - ACL Lockdown
             - Network - Validate Lockdown
-            - Network - Create ServiceNow CR
             - Network - ACL Remove
 
           Created workflow:

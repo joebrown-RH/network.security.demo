@@ -1,6 +1,6 @@
 ---
 - name: Validate Emergency ACL Lockdown
-  hosts: "{{ _hosts | default('routers') }}"
+  hosts: "{{ _hosts | default('cisco') }}"
   gather_facts: false
 
   vars:
