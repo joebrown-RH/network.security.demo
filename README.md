@@ -1,129 +1,125 @@
 # Network ACL Emergency Lockdown Demo
 
-Automated CVE-driven network lockdown using Red Hat Ansible Automation Platform and Event-Driven Ansible. 
+Automated CVE-driven network lockdown using Red Hat Ansible Automation Platform and Event-Driven Ansible, designed for the [Network Automation Workshop](https://github.com/rhpds/zt-network-automation-workshop) environment.
 
 ## What This Demo Shows
 
 A vulnerability scanner detects a critical CVE. A webhook fires to Event-Driven Ansible, which triggers a workflow that:
 
 1. **Backs up** router configurations
-2. **Applies emergency ACLs** blocking the exploit vector across all Cisco IOS devices
+2. **Applies emergency ACLs** blocking the exploit vector on Cisco IOS devices
 3. **Validates** the lockdown is active on every device
-4. **Creates a ServiceNow change request** for audit trail
 
-The entire flow runs in minutes with zero manual CLI access.
+On failure, the workflow automatically **rolls back** by removing the ACL.
 
 ```
 Scanner Alert ──> EDA Webhook ──> AAP Workflow
                                       │
-                    ┌─────────────────┼─────────────────────┐
-                    v                 v                     v
-              Backup Config    ACL Lockdown ──> Validate ──> ServiceNow CR
-                                    │
-                                 (on failure)
-                                    v
-                              Restore Backup
+                              Backup Config
+                                      │
+                               ACL Lockdown
+                              /            \
+                       (on success)    (on failure)
+                            │               │
+                    Validate Lockdown   ACL Remove
+                                       (Rollback)
 ```
 
-## RHDP Lab Setup
+## Prerequisites
 
-### Prerequisites
+- **Network Automation Workshop** provisioned from [demo.redhat.com](https://demo.redhat.com) (catalog item: `zt-network-automation-workshop`)
+- The workshop provides: AAP Controller, Cisco IOS-XE router (rtr1) via containerlab, and all required credentials and inventories
 
-- **RHDP Catalog Item**: "Ansible Network Automation" from [demo.redhat.com](https://demo.redhat.com)
-- The lab provides: AAP Controller, EDA Controller, Cisco IOS-XE routers
+### Workshop Resources Used
 
-### Automated Setup (Recommended)
+| Resource | Name |
+|----------|------|
+| Organization | `Red Hat network organization` |
+| Inventory | `Workshop Inventory` |
+| Credential | `Workshop Credential` |
+| Execution Environment | `Network EE` |
+| Host Group | `cisco` (rtr1 — Cisco IOS-XE) |
 
-All job templates, the workflow, and the EDA activation can be created automatically using Configuration-as-Code. Only two manual steps are required:
+## Setup
 
-**1. Create the Project**
+### 1. Create the Project
 
-In AAP Controller, navigate to **Projects** > **Add**:
-- **Name**: `Network Security Demo`
-- **Organization**: Default
-- **Source Control Type**: Git
-- **Source Control URL**: `https://github.com/joebrown-RH/network.security.demo.git`
-- **Update Revision on Launch**: Enabled
+In AAP Controller, navigate to **Projects** > **Create Project**:
 
-**2. Create and run the Setup job template**
+| Field | Value |
+|-------|-------|
+| Name | `Network Security Demo` |
+| Organization | `Red Hat network organization` |
+| Source Control Type | Git |
+| Source Control URL | `https://github.com/joebrown-RH/network.security.demo.git` |
+| Update Revision on Launch | Enabled |
 
-Navigate to **Templates** > **Add** > **Add job template**:
-- **Name**: `Setup - Network Security Demo`
-- **Project**: `Network Security Demo`
-- **Playbook**: `playbooks/setup_demo.yml`
-- **Inventory**: Demo Inventory (or any inventory with localhost)
-- **Credentials**: your AAP credential (needs admin access to create resources)
-- **Extra Variables** (adjust to match your environment):
-  ```yaml
-  org: Default
-  project_name: Network Security Demo
-  network_inventory: Network Inventory
-  network_credential: Network Credential
-  servicenow_credential: ServiceNow Credential
-  execution_environment: Default execution environment
-  eda_decision_environment: Default Decision Environment
-  eda_controller_credential: Controller Credential
-  ```
-- **Prompt on launch** for Extra Variables: Enabled
+### 2. Create and run the Setup Job Template
 
-Launch the setup template. It will create:
-- 5 job templates (Backup, Lockdown, Validate, ServiceNow CR, ACL Remove)
+Navigate to **Templates** > **Create Job Template**:
+
+| Field | Value |
+|-------|-------|
+| Name | `Setup - Network Security Demo` |
+| Job Type | Run |
+| Inventory | `Workshop Inventory` |
+| Project | `Network Security Demo` |
+| Playbook | `playbooks/setup_demo.yml` |
+| Execution Environment | `Network EE` |
+| Credentials | `Controller Credential` |
+
+Launch the template. It creates:
+- 4 job templates (Backup Config, ACL Lockdown, Validate Lockdown, ACL Remove)
 - 1 workflow template (Network - CVE Emergency Lockdown)
 - 1 EDA rulebook activation (CVE Emergency Network Lockdown)
 
-### Manual Setup (Alternative)
+All resources default to the workshop environment. Override with extra vars if needed:
+
+```yaml
+org: Red Hat network organization
+project_name: Network Security Demo
+network_inventory: Workshop Inventory
+network_credential: Workshop Credential
+execution_environment: Network EE
+```
 
 <details>
-<summary>Click to expand manual click-ops instructions</summary>
-
-#### Create the Project in AAP
-
-1. Log in to AAP Controller
-2. Navigate to **Projects** > **Add**
-3. Configure:
-   - **Name**: `Network Security Demo`
-   - **Organization**: Default
-   - **Source Control Type**: Git
-   - **Source Control URL**: `https://github.com/joebrown-RH/network.security.demo.git`
-   - **Update Revision on Launch**: Enabled
+<summary>Manual Setup (Alternative)</summary>
 
 #### Create Job Templates
 
-Create the following job templates, all using the `Network Security Demo` project:
+Create the following job templates using the `Network Security Demo` project:
 
 | Template Name | Playbook | Inventory | Credentials |
 |---|---|---|---|
-| Network - Backup Config | `playbooks/network_acl_backup.yml` | Network Inventory | Network Credential |
-| Network - ACL Lockdown | `playbooks/network_acl_lockdown.yml` | Network Inventory | Network Credential |
-| Network - Validate Lockdown | `playbooks/network_acl_validate.yml` | Network Inventory | Network Credential |
-| Network - Create ServiceNow CR | `playbooks/servicenow_create_change.yml` | Demo Inventory | ServiceNow Credential |
-| Network - ACL Remove | `playbooks/network_acl_remove.yml` | Network Inventory | Network Credential |
+| Network - Backup Config | `playbooks/network_acl_backup.yml` | Workshop Inventory | Workshop Credential |
+| Network - ACL Lockdown | `playbooks/network_acl_lockdown.yml` | Workshop Inventory | Workshop Credential |
+| Network - Validate Lockdown | `playbooks/network_acl_validate.yml` | Workshop Inventory | Workshop Credential |
+| Network - ACL Remove | `playbooks/network_acl_remove.yml` | Workshop Inventory | Workshop Credential |
 
-For **Network - ACL Lockdown**, enable **Prompt on launch** for Extra Variables so the workflow can pass `cve_id`, `blocked_port`, and `blocked_protocol`.
+For all templates, set the **Execution Environment** to `Network EE` and enable **Prompt on launch** for Extra Variables.
 
 #### Create the Workflow Template
 
-1. Navigate to **Templates** > **Add** > **Add workflow template**
+1. Navigate to **Templates** > **Create Workflow Job Template**
 2. **Name**: `Network - CVE Emergency Lockdown`
-3. Build the workflow:
+3. **Organization**: `Red Hat network organization`
+4. Build the workflow:
 
 ```
-[Network - Backup Config]
-        │ (on success)
-        v
-[Network - ACL Lockdown]
-        │ (on success)          │ (on failure)
-        v                       v
-[Network - Validate Lockdown]  [Network - ACL Remove (rollback)]
-        │ (on success)
-        v
-[Network - Create ServiceNow CR]
+[Backup Config]
+       │ (on success)
+       v
+[ACL Lockdown]
+       │ (on success)          │ (on failure)
+       v                       v
+[Validate Lockdown]     [ACL Remove (Rollback)]
 ```
 
-4. Enable **Prompt on launch** for Extra Variables on the workflow template
-5. Check **Pass extra variables to nodes** so `cve_id`, `blocked_port`, and `blocked_protocol` flow through
+5. Enable **Prompt on launch** for Extra Variables
+6. Check **Pass extra variables to nodes** so `cve_id`, `blocked_port`, and `blocked_protocol` flow through
 
-#### Configure Event-Driven Ansible
+#### Configure Event-Driven Ansible (Optional)
 
 1. Log in to the EDA Controller
 2. Create a **Project** pointing to this repo
@@ -132,56 +128,56 @@ For **Network - ACL Lockdown**, enable **Prompt on launch** for Extra Variables 
    - **Project**: Network Security Demo
    - **Rulebook**: `rulebooks/cve_webhook_lockdown.yml`
    - **Decision Environment**: Default Decision Environment
-   - **Credential**: AAP Controller Credential
+   - **Credential**: Controller Credential
 4. Enable the activation
 
 </details>
 
-### Test the Demo
+## Usage
 
-Trigger the lockdown with a simulated scanner alert:
+### Manual Launch
+
+Run the **Network - CVE Emergency Lockdown** workflow template with:
+
+```yaml
+cve_id: CVE-2017-0144
+blocked_port: "445"
+blocked_protocol: tcp
+```
+
+### Via EDA Webhook
 
 ```bash
-# Simulate a critical CVE alert (SMB/EternalBlue scenario)
-curl -X POST http://<eda-controller>:5000/endpoint \
+curl -X POST http://<eda-host>:5000/endpoint \
   -H "Content-Type: application/json" \
   -d '{
     "cve_id": "CVE-2017-0144",
     "severity": "critical",
     "action": "lockdown",
     "port": "445",
-    "protocol": "tcp",
-    "description": "SMB remote code execution - worm propagation vector"
+    "protocol": "tcp"
   }'
 ```
 
-Then watch the workflow execute in the AAP Controller UI.
-
 See `vars/acl_profiles.yml` for additional pre-built scenarios (RDP, HTTP app, DNS amplification, Telnet).
 
-### Step 6: Clean Up
+### Clean Up
 
-After the demo, remove the emergency ACLs:
-
-1. Run the **Network - ACL Remove** job template, or
-2. Launch manually from the CLI:
-   ```bash
-   ansible-playbook playbooks/network_acl_remove.yml -i inventory
-   ```
+Run the **Network - ACL Remove** job template to remove the emergency ACL from all interfaces and delete the ACL definition.
 
 ## File Structure
 
 ```
 playbooks/
-  setup_demo.yml                # CaC setup: creates all templates + workflow + EDA in AAP
+  setup_demo.yml                # CaC setup: creates all templates + workflow + EDA
   network_acl_backup.yml        # Backup running config before changes
   network_acl_lockdown.yml      # Apply emergency ACLs to block exploit vector
   network_acl_validate.yml      # Verify ACLs are applied and active
   network_acl_remove.yml        # Remove emergency ACLs post-patch
-  servicenow_create_change.yml  # Create ServiceNow emergency change request
+  servicenow_create_change.yml  # Create ServiceNow change request (not wired into workflow)
 
 config_as_code/
-  controller_templates.yml           # Job template definitions (5 templates)
+  controller_templates.yml           # Job template definitions (4 templates)
   controller_templates_workflow.yml  # Workflow template definition
   eda_rulebook_activations.yml       # EDA rulebook activation definition
 
@@ -190,25 +186,26 @@ rulebooks/
 
 vars/
   acl_profiles.yml              # Pre-built lockdown profiles for common CVEs
-
-blog/
-  network-acl-lockdown-blog.md  # Blog post about this demo
 ```
 
 ## Required Collections
 
-These should be available in the execution environment:
+These are included in the `Network EE` execution environment:
 
 - `cisco.ios` >= 5.0.0
-- `servicenow.itsm` >= 2.4.0
 - `infra.aap_configuration` (for the setup playbook)
 - `ansible.eda` >= 1.0.0 (for the decision environment)
+
+## Roadmap
+
+- **ServiceNow integration** — emergency change request creation for audit trail (playbook exists, needs credential and workflow wiring)
+- **Multi-vendor support** — extend lockdown playbooks to Arista EOS and Juniper Junos devices
 
 ## Campaign Alignment
 
 This demo maps to the **Mitigate** phase of the Security in the AI Era campaign workflow:
 
-> *Deploys targeted controls at scale when patches aren't available -- breaking exploit chains in hours.*
+> *Deploys targeted controls at scale when patches aren't available — breaking exploit chains in hours.*
 
 Key talking points:
 - MTTE has flipped from a 44-day head start to a 7-day deficit
