@@ -1,4 +1,10 @@
 ---
+eda_projects:
+  - name: "{{ _project }}"
+    organization: "{{ _org }}"
+    url: "https://github.com/joebrown-RH/network.security.demo.git"
+    state: present
+
 eda_rulebook_activations:
   - name: CVE Emergency Network Lockdown
     description: >-
