@@ -12,7 +12,7 @@
       action:
         run_workflow_template:
           name: "Network - CVE Emergency Lockdown"
-          organization: "Red Hat network organization"
+          organization: "Default"
           extra_vars:
             cve_id: "{{ event.payload.cve_id }}"
             blocked_port: "{{ event.payload.port }}"
