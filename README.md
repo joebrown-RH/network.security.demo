@@ -1,6 +1,6 @@
 # Network ACL Emergency Lockdown Demo
 
-Automated CVE-driven network lockdown using Red Hat Ansible Automation Platform and Event-Driven Ansible, designed for the [Network Automation Workshop](https://github.com/rhpds/zt-network-automation-workshop) environment.
+Automated CVE-driven network lockdown using Red Hat Ansible Automation Platform and Event-Driven Ansible, designed for the [Network Automation Workshop]([https://github.com/rhpds/zt-network-automation-workshop](https://catalog.demo.redhat.com/catalog/babylon-catalog-prod?item=babylon-catalog-prod/zt-ansiblebu.ansible-network-automation-workshop.prod&utm_source=webapp&utm_medium=share-link) environment.
 
 ## What This Demo Shows
 
@@ -27,7 +27,7 @@ Scanner Alert ──> EDA Webhook ──> AAP Workflow
 
 ## Prerequisites
 
-- **Network Automation Workshop** provisioned from [demo.redhat.com](https://demo.redhat.com) (catalog item: `zt-network-automation-workshop`)
+- **Network Automation Workshop** provisioned from [demo.redhat.com](https://demo.redhat.com) (catalog item: `Introduction to Ansible Network Automation Workshop`)
 - The workshop provides: AAP Controller, Cisco IOS-XE router (rtr1) via containerlab, and all required credentials and inventories
 
 ### Workshop Resources Used
